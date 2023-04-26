@@ -2,29 +2,104 @@
 import { withAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
 import React from 'react';
+import BooksCards from './components/BooksCards';
+import { Row, Button } from 'react-bootstrap';
+import AddBookForm from './components/AddBookForm';
+import UpdateBookInfo from './components/UpdateBookInfo';
 
-import { Card, Col, Row } from 'react-bootstrap';
 
 class BestBooks extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      books: []
+      books: [],
+      show: false,
+      selectedBook: {},
+      showUpdateModal: false
+
     }
   }
 
-  /* TODO: Make a GET request to your API to fetch all the books from the database  */
+
+  // ------------------ get all books data -----------------
   componentDidMount = async () => {
     const { user } = this.props.auth0;
-
     let getBooksData = await axios.get(`${process.env.REACT_APP_SERVER}/book?userEmail=${user.email}`);
 
     this.setState({
       books: getBooksData.data
     })
-    // console.log("books dataaaa", this.state.books);
+  }
+
+  // ----------------- add new book ---------
+  addBook = async (e) => {
+    e.preventDefault();
+    const { user } = this.props.auth0;
+
+    let bookInfo = {
+      userEmail: user.email,
+      bookName: e.target.bookName.value,
+      bookDescription: e.target.description.value
+    }
+
+    let addBookData = await axios.post(`${process.env.REACT_APP_SERVER}/addBook`, bookInfo);
+
+    this.setState({
+      books: addBookData.data
+    })
+  }
+
+  // ---------- delete book -------------
+  deleteBook = async (bookID) => {
+    const { user } = this.props.auth0;
+
+    let deletBook = await axios.delete(`${process.env.REACT_APP_SERVER}/deleteBook/${bookID}?userEmail=${user.email}`)
+    this.setState({
+      books: deletBook.data
+    })
 
   }
+
+  // ----------------- update book informations --------------
+  updateBook = async (bookID) => {
+
+    let choosenBook = this.state.books.find(item => {
+      return item._id === bookID;
+    })
+    console.log({ choosenBook });
+
+    this.setState({
+      selectedBook: choosenBook,
+      showUpdateModal: true
+    })
+  }
+
+  updateBookInfo = async (e) => {
+    const { user } = this.props.auth0;
+
+    e.preventDefault();
+
+    let bookInputs = {
+      userEmail: user.email,
+      bookName: e.target.bookName.value,
+      description: e.target.description.value
+    }
+    let bookID = this.state.selectedBook._id;
+    let bookData = await axios.put(`${process.env.REACT_APP_SERVER}/updateBook/${bookID}`, bookInputs);
+
+    this.setState({
+      books: bookData.data
+    })
+  }
+
+  // -------------------- to show and hide the modal ------------------
+  handleShow = () => {
+    this.setState({show: true})}
+
+  handleClose = () => {this.setState({show: false,showUpdateModal: false})}
+
+
+
 
   render() {
 
@@ -33,36 +108,42 @@ class BestBooks extends React.Component {
     return (
       <>
         <h2 style={{ textAlign: "center", margin: '10px' }}>My Essential Lifelong Learning &amp; Formation Shelf</h2>
+        <br />
+
+        <Button variant="primary" onClick={this.handleShow} style={{ marginLeft: '700px' }}> Add Book </Button>
+        <br />
+
+        {/*  ------------------ render all books in cards ------- */}
         <Row>
+          {this.state.books.length ? (
 
-          {this.state.books.length > 0 ? (
-            this.state.books.map(data => {
+            <BooksCards
+              books={this.state.books}
+              deleteBook={this.deleteBook}
+              updateBook={this.updateBook}
+            />
 
-
-              return (
-                <Col>
-                  <Card style={{ width: '18rem', marginTop: '20px', marginBottom: '20px' }}>
-                    {/* <Card.Img variant="top" src="holder.js/100px180" /> */}
-                    <Card.Body>
-                      <Card.Title> {data.bookName}</Card.Title>
-                      <Card.Text>
-                        {data.description}
-                      </Card.Text>
-                    </Card.Body>
-                    <Card.Text>
-                      status : {data.status}
-                    </Card.Text>
-                  </Card>
-                </Col>
-              )
-
-
-            })
-          )
-            : (
+          ) : (
               <h3>No Books Found :(</h3>
             )}
         </Row>
+
+        {/* -------------- Add new book form with modal --------- */}
+        <AddBookForm
+          show={this.state.show}
+          handleClose={this.handleClose}
+          addBook={this.addBook}
+        />
+
+        {/* --------------- update book form with Modal ---------- */}
+        <br />
+        <UpdateBookInfo
+          showUpdateModal={this.state.showUpdateModal}
+          handleClose={this.handleClose}
+          updateBookInfo={this.updateBookInfo}
+          bookName={this.state.selectedBook.bookName}
+          description={this.state.selectedBook.description}
+        />
       </>
     )
   }
